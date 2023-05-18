@@ -6,6 +6,7 @@
 
 // Styles
 import '@mdi/font/css/materialdesignicons.css'
+import { aliases, fa } from 'vuetify/iconsets/fa'
 import 'vuetify/styles'
 
 // Composables
@@ -23,4 +24,11 @@ export default createVuetify({
       },
     },
   },
+  icons: {
+    defaultSet: 'fa' || 'mdi',
+    aliases,
+    sets: {
+      fa,
+    },
+},
 })

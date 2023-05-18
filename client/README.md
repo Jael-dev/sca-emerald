@@ -1,4 +1,12 @@
-# base
+# Project description
+
+Project name : Plume Emotionnelle
+
+Description : This is a blog site. The back end is firebase for the moment but I think I will migrate the whole thing to Microsoft Azure services.
+
+
+
+# Basic commands for the project
 
 ## Project setup
 
