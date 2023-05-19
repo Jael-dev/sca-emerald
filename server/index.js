@@ -65,6 +65,7 @@ app.get('/articles', async (req, res) => {
         });
 
         res.send(result)
+        console.log(result)
 
     } catch (e) {
         console.log(e.message)
@@ -78,6 +79,7 @@ app.get('/articles/:id', async (req, res) => {
     try {
         let data = await poolConnection.request().query(`SELECT * FROM Articles WHERE ArticleId = ?`, id);
         res.send(data)
+        console.log(data+" added successfully")
     } catch (e) {
         console.log(e.message)
     }
@@ -98,6 +100,7 @@ app.post('/article', async (req, res) => {
         });
         let data = await poolConnection.request().query(`INSERT INTO  Articles (ArticleId, ArticleTitle, ArticleBody, ArticleBody, ArticleImage, ArticleDate, ArticleAudio, ArticleTags, CategoryId) VALUES (?)`, [id,req.body.ArticleTitle, req.body.ArticleBody, req.body.ArticleImage, req.body.Date, req.body.Audio, req.body.Tags, req.body.CategoryId] );
         res.send(data)
+        console.log(data+" added successfully")
     } catch (e) {
         console.log(e.message)
     }
@@ -178,6 +181,7 @@ app.get('/category', async (req, res) => {
         });
 
         res.send(result)
+        console.log(result)
 
     } catch (e) {
         console.log(e.message)
@@ -191,6 +195,7 @@ app.get('/category/:id', async (req, res) => {
     try {
         let data = await poolConnection.request().query(`SELECT * FROM Category WHERE CategoryId = ?`, id);
         res.send(data)
+        console.log(data+" added successfully")
     } catch (e) {
         console.log(e.message)
     }
@@ -211,6 +216,7 @@ app.post('/category', async (req, res) => {
         });
         let data = await poolConnection.request().query(`INSERT INTO  Category (CategoryId, CategoryName) VALUES (?)`, [id,req.body.CategoryName] );
         res.send(data)
+        console.log(data+" added successfully")
     } catch (e) {
         console.log(e.message)
     }
