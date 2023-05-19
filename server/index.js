@@ -54,7 +54,7 @@ async function closeConnection() {
 app.get('/articles', async (req, res) => {
 
     try {
-        var resultSet = await poolConnection.request().query(`SELECT * FROM Articles`);
+        var resultSet = await poolConnection.request().query(`SELECT * FROM Articles ORDER BY ArticleId DESC`);
 
         console.log(`${resultSet.recordset.length} rows returned.`);
 
@@ -76,7 +76,7 @@ app.get('/articles/:id', async (req, res) => {
     const id = req.params.id
 
     try {
-        let data = await poolConnection.request().query(`SELECT * FROM Articles WHERE ArticleId = $id`);
+        let data = await poolConnection.request().query(`SELECT * FROM Articles WHERE ArticleId = ?`, id);
         res.send(data)
     } catch (e) {
         console.log(e.message)
@@ -84,14 +84,19 @@ app.get('/articles/:id', async (req, res) => {
 
 })
 
-// TODO: Get articles by tages and by dates
+// TODO: Get articles by tags and by dates
 
 //? Post articles
 
 app.post('/article', async (req, res) => {
 
     try {
-        let data = await poolConnection.request().query(`INSERT INTO  Articles  $req`);
+        let id = 1
+        let idQuery = await poolConnection.request().query(`SELECT * FROM Articles ORDER BY ArticleId DESC LIMIT 1`)
+        idQuery.recordset.forEach(row => {
+            id = id + row.ArticleId
+        });
+        let data = await poolConnection.request().query(`INSERT INTO  Articles (ArticleId, ArticleTitle, ArticleBody, ArticleBody, ArticleImage, ArticleDate, ArticleAudio, ArticleTags, CategoryId) VALUES (?)`, [id,req.body.ArticleTitle, req.body.ArticleBody, req.body.ArticleImage, req.body.Date, req.body.Audio, req.body.Tags, req.body.CategoryId] );
         res.send(data)
     } catch (e) {
         console.log(e.message)
@@ -153,16 +158,16 @@ app.post('/books', async (req, res) => {
 })
 
 
-//? books Queries
+//? Categories Queries
 
-//! Get articles
+//! Get category
 
 
-// Get all articles
-app.get('/articles', async (req, res) => {
+// Get all category
+app.get('/category', async (req, res) => {
 
     try {
-        var resultSet = await poolConnection.request().query(`SELECT * FROM Articles`);
+        var resultSet = await poolConnection.request().query(`SELECT * FROM category ORDER BY CategoryId DESC`);
 
         console.log(`${resultSet.recordset.length} rows returned.`);
 
@@ -179,12 +184,12 @@ app.get('/articles', async (req, res) => {
     }
 })
 
-// Get articles by id
-app.get('/articles/:id', async (req, res) => {
+// Get category by id
+app.get('/category/:id', async (req, res) => {
     const id = req.params.id
 
     try {
-        let data = await poolConnection.request().query(`SELECT * FROM Articles WHERE ArticleId = $id`);
+        let data = await poolConnection.request().query(`SELECT * FROM Category WHERE CategoryId = ?`, id);
         res.send(data)
     } catch (e) {
         console.log(e.message)
@@ -192,12 +197,19 @@ app.get('/articles/:id', async (req, res) => {
 
 })
 
-//? Post articles
+// TODO: Get categories by tags and by dates
 
-app.post('/aricle', async (req, res) => {
+//? Post category
+
+app.post('/category', async (req, res) => {
 
     try {
-        let data = await poolConnection.request().query(`INSERT INTO  Articles  $req`);
+        let id = 1
+        let idQuery = await poolConnection.request().query(`SELECT * FROM Category ORDER BY CategoryId DESC LIMIT 1`)
+        idQuery.recordset.forEach(row => {
+            id = id + row.CategoryId
+        });
+        let data = await poolConnection.request().query(`INSERT INTO  Category (CategoryId, CategoryName) VALUES (?)`, [id,req.body.CategoryName] );
         res.send(data)
     } catch (e) {
         console.log(e.message)
@@ -205,16 +217,16 @@ app.post('/aricle', async (req, res) => {
 })
 
 
-//? Articles Queries
+//? Scenes Queries
 
-//! Get articles
+//! Get scenes
 
 
-// Get all articles
-app.get('/articles', async (req, res) => {
+// Get all scenes
+app.get('/scenes', async (req, res) => {
 
     try {
-        var resultSet = await poolConnection.request().query(`SELECT * FROM Articles`);
+        var resultSet = await poolConnection.request().query(`SELECT * FROM scenes`);
 
         console.log(`${resultSet.recordset.length} rows returned.`);
 
@@ -231,12 +243,12 @@ app.get('/articles', async (req, res) => {
     }
 })
 
-// Get articles by id
-app.get('/articles/:id', async (req, res) => {
+// Get scenes by id
+app.get('/scenes/:id', async (req, res) => {
     const id = req.params.id
 
     try {
-        let data = await poolConnection.request().query(`SELECT * FROM Articles WHERE ArticleId = $id`);
+        let data = await poolConnection.request().query(`SELECT * FROM Scenes WHERE SceneId = $id`);
         res.send(data)
     } catch (e) {
         console.log(e.message)
@@ -244,12 +256,12 @@ app.get('/articles/:id', async (req, res) => {
 
 })
 
-//? Post articles
+//? Post scenes
 
-app.post('/aricle', async (req, res) => {
+app.post('/scenes', async (req, res) => {
 
     try {
-        let data = await poolConnection.request().query(`INSERT INTO  Articles  $req`);
+        let data = await poolConnection.request().query(`INSERT INTO  Scenes  $req`);
         res.send(data)
     } catch (e) {
         console.log(e.message)
@@ -257,16 +269,16 @@ app.post('/aricle', async (req, res) => {
 })
 
 
-//? Articles Queries
+//? Users Queries
 
-//! Get articles
+//! Get users
 
 
-// Get all articles
-app.get('/articles', async (req, res) => {
+// Get all users
+app.get('/users', async (req, res) => {
 
     try {
-        var resultSet = await poolConnection.request().query(`SELECT * FROM Articles`);
+        var resultSet = await poolConnection.request().query(`SELECT * FROM Users`);
 
         console.log(`${resultSet.recordset.length} rows returned.`);
 
@@ -283,12 +295,12 @@ app.get('/articles', async (req, res) => {
     }
 })
 
-// Get articles by id
-app.get('/articles/:id', async (req, res) => {
+// Get users by id
+app.get('/users/:id', async (req, res) => {
     const id = req.params.id
 
     try {
-        let data = await poolConnection.request().query(`SELECT * FROM Articles WHERE ArticleId = $id`);
+        let data = await poolConnection.request().query(`SELECT * FROM Users WHERE UserId = $id`);
         res.send(data)
     } catch (e) {
         console.log(e.message)
@@ -296,16 +308,18 @@ app.get('/articles/:id', async (req, res) => {
 
 })
 
-//? Post articles
+//? Post users
 
-app.post('/aricle', async (req, res) => {
+app.post('/User', async (req, res) => {
 
     try {
-        let data = await poolConnection.request().query(`INSERT INTO  Articles  $req`);
+        let data = await poolConnection.request().query(`INSERT INTO  users  $req`);
         res.send(data)
     } catch (e) {
         console.log(e.message)
     }
 })
+
+// TODO: Work on the comments and users table. 
 
 
