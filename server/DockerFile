@@ -1,0 +1,9 @@
+FROM alpine:3.16
+
+COPY pakage.json /app/
+
+WORKDIR /app
+
+RUN npm install
+
+CMD ["node", "index.js"]
