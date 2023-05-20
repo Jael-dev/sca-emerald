@@ -1,10 +1,29 @@
 const express = require('express')
 const sql = require('mssql')
+const bodyParser = require('body-parser');
+const cors = require('cors');
+const AWS = require('aws-sdk');
 
 const app = express()
-var poolConnection;
 
-//? Connection Configuration
+app.use(bodyParser.json({ limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(cors());
+app.use(express.urlencoded({ extended: true }));
+
+
+//? Connection Configuration To AWS
+const s3 = new AWS.S3({
+    accessKeyId: "AKIAZKAF4JEXSPN2HAIZ",
+    secretAccessKey: "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",
+});
+
+const BUCKET = 'tekriture';
+var poolConnection;
+const port = 8001;
+
+
+//? Connection Configuration TO Azure DB
 
 const config = {
     user: 'jael',
@@ -20,7 +39,7 @@ const config = {
     }
 }
 
-//? Connection Function
+//? Connection Function to DB
 
 async function connect() {
     try {
@@ -33,6 +52,69 @@ async function connect() {
 
 
 connect()
+app.listen(port);
+
+//? Function to send image to db
+
+const uploadFile = (filePath, keyName) => {
+
+    return new Promise((resolve, reject) => {
+        try {
+            var fs = require('fs');
+            const file = fs.readFileSync(filePath);
+            const BUCKET = 'tekriture';
+
+            const uploadParams = {
+                Bucket: BUCKET,
+                Key: keyName,
+                Body: file
+            };
+
+            s3.upload(uploadParams, function (err, data) {
+                if (err) {
+                    console.log(err.message)
+                    return reject(err);
+                }
+                if (data) {
+                    console.log(data)
+                    return resolve(data);
+                }
+            });
+        } catch (err) {
+            console.log(err.message)
+            return reject(err);
+        }
+    })
+}
+
+//? Get Imge from AWS
+
+const getSignUrlForFile = (key) => {
+    return new Promise((resolve, reject) => {
+        try {
+            const path = require('path');
+            const fileName = path.basename(key);
+
+            var params = {
+                Bucket: 'tekriture',
+                Key: key,
+                Expires: 30 * 60
+            };
+
+            const signedUrl = s3.getSignedUrl('getObject', params);
+            if (signedUrl) {
+                return resolve({
+                    signedUrl
+                });
+            } else {
+                return reject("Cannot create signed URL");
+            }
+        } catch (err) {
+            return reject("Cannot create signed URL!");
+        }
+    });
+}
+
 
 
 async function closeConnection() {
@@ -44,6 +126,13 @@ async function closeConnection() {
     }
 }
 
+
+
+// Default route
+
+app.get('/', (req, res) => {
+    res.send(`Hi! Server is listening on port ${port}`)
+});
 
 //? Articles Queries
 
@@ -61,7 +150,7 @@ app.get('/articles', async (req, res) => {
         var result = [];
 
         resultSet.recordset.forEach(row => {
-            result.add(row)
+            result.push(row)
         });
 
         res.send(result)
@@ -79,7 +168,7 @@ app.get('/articles/:id', async (req, res) => {
     try {
         let data = await poolConnection.request().query(`SELECT * FROM Articles WHERE ArticleId = ?`, id);
         res.send(data)
-        console.log(data+" added successfully")
+        console.log(data + " added successfully")
     } catch (e) {
         console.log(e.message)
     }
@@ -90,17 +179,23 @@ app.get('/articles/:id', async (req, res) => {
 
 //? Post articles
 
-app.post('/article', async (req, res) => {
+app.post('/articles', async (req, res) => {
 
     try {
+
+        console.log("Posting article")
         let id = 1
-        let idQuery = await poolConnection.request().query(`SELECT * FROM Articles ORDER BY ArticleId DESC LIMIT 1`)
+        let idQuery = await poolConnection.request().query(`SELECT MAX(ArticleId) FROM Articles`)
         idQuery.recordset.forEach(row => {
-            id = id + row.ArticleId
+            if (row.ArticleId) { id = id + row.ArticleId }
+
         });
-        let data = await poolConnection.request().query(`INSERT INTO  Articles (ArticleId, ArticleTitle, ArticleBody, ArticleBody, ArticleImage, ArticleDate, ArticleAudio, ArticleTags, CategoryId) VALUES (?)`, [id,req.body.ArticleTitle, req.body.ArticleBody, req.body.ArticleImage, req.body.Date, req.body.Audio, req.body.Tags, req.body.CategoryId] );
+        // upload file to AWS
+        uploadFile(String(req.body.ArticleImage),String(req.body.ArticleTitle))
+        let imageLink = getSignUrlForFile(String(req.body.ArticleTitle));
+        let data = await poolConnection.request().query(`INSERT INTO  Articles (ArticleId, ArticleTitle, ArticleBody, ArticleBody, ArticleImage, ArticleDate, ArticleAudio, ArticleTags, CategoryId) VALUES (?)`, [id, req.body.ArticleTitle, req.body.ArticleBody, imageLink, req.body.Date, req.body.Audio, req.body.Tags, req.body.CategoryId]);
         res.send(data)
-        console.log(data+" added successfully")
+        console.log(data + " added successfully")
     } catch (e) {
         console.log(e.message)
     }
@@ -123,7 +218,7 @@ app.get('/books', async (req, res) => {
         var result = [];
 
         resultSet.recordset.forEach(row => {
-            result.add(row)
+            result.push(row)
         });
 
         res.send(result)
@@ -177,7 +272,7 @@ app.get('/category', async (req, res) => {
         var result = [];
 
         resultSet.recordset.forEach(row => {
-            result.add(row)
+            result.push(row)
         });
 
         res.send(result)
@@ -195,7 +290,7 @@ app.get('/category/:id', async (req, res) => {
     try {
         let data = await poolConnection.request().query(`SELECT * FROM Category WHERE CategoryId = ?`, id);
         res.send(data)
-        console.log(data+" added successfully")
+        console.log(data + " added successfully")
     } catch (e) {
         console.log(e.message)
     }
@@ -214,9 +309,9 @@ app.post('/category', async (req, res) => {
         idQuery.recordset.forEach(row => {
             id = id + row.CategoryId
         });
-        let data = await poolConnection.request().query(`INSERT INTO  Category (CategoryId, CategoryName) VALUES (?)`, [id,req.body.CategoryName] );
+        let data = await poolConnection.request().query(`INSERT INTO  Category (CategoryId, CategoryName) VALUES (?)`, [id, req.body.CategoryName]);
         res.send(data)
-        console.log(data+" added successfully")
+        console.log(data + " added successfully")
     } catch (e) {
         console.log(e.message)
     }
@@ -239,7 +334,7 @@ app.get('/scenes', async (req, res) => {
         var result = [];
 
         resultSet.recordset.forEach(row => {
-            result.add(row)
+            result.push(row)
         });
 
         res.send(result)
@@ -291,7 +386,7 @@ app.get('/users', async (req, res) => {
         var result = [];
 
         resultSet.recordset.forEach(row => {
-            result.add(row)
+            result.push(row)
         });
 
         res.send(result)
