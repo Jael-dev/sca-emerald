@@ -57,6 +57,7 @@
 <script>
 export default {
   data: () => ({
+    categories: {},
     links: [
       'Acceuil',
       'Blog',
@@ -70,5 +71,16 @@ export default {
       'Contacter',
     ],
   }),
+  created() {
+    this.getList(); // NEW - call getEventData() when the instance is created
+  },
+  methods: {
+    async getList() {
+      await this.axios.get("http://localhost:8001/category").then((response) => {
+        this.categories =response.data
+        console.log(this.categories)
+      })
+    }
+  }
 }
 </script>
