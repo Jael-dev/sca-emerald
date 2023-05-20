@@ -329,3 +329,6 @@ app.post('/User', async (req, res) => {
 // TODO: Work on the comments and users table. 
 
 
+//TODO: Work on the auth and storage
+
+
