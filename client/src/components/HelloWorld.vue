@@ -68,7 +68,8 @@
               <p>Link to the AWS Bucket: <a
                   href="https://s3.console.aws.amazon.com/s3/buckets/tekriture?region=us-east-1&tab=objects">Visit The
                   different files files you uploaded here</a></p>
-              <p>Link of the github repo </p>
+              <p>Link of the github repo <a
+                  href="https://github.com/Jael-dev/sca-emerald">Access the different folders here. The client and the server</a> </p>
 
             </form>
           </v-col>
