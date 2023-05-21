@@ -11,6 +11,7 @@
   "dependencies": {
     "@mdi/font": "7.0.96",
     "@originjs/vite-plugin-commonjs": "^1.0.3",
+    "@vitejs/plugin-vue": "^4.2.3",
     "axios": "^1.4.0",
     "core-js": "^3.29.0",
     "roboto-fontface": "*",
@@ -20,7 +21,6 @@
     "webfontloader": "^1.0.0"
   },
   "devDependencies": {
-    "@vitejs/plugin-vue": "^3.0.3",
     "eslint": "^8.37.0",
     "eslint-plugin-vue": "^9.3.0",
     "sass": "^1.60.0",
