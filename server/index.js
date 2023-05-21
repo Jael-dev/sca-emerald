@@ -5,25 +5,25 @@ const cors = require('cors');
 const metadata = require('gcp-metadata');
 const {OAuth2Client} = require('google-auth-library');
 const AWS = require('aws-sdk');
-
+var fs = require('fs');
 const app = express()
 const oAuth2Client = new OAuth2Client();
 
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ extended: true, limit: '10mb', parameterLimit: 100000, }));
 app.use(cors());
-app.use(express.urlencoded({ extended: true }));
+app.use(express.urlencoded({ extended: true }))
 
 
 //! Auth functions
 
-
+var newFile = null;
 let aud;
 
 async function audience() {
   if (!aud && (await metadata.isAvailable())) {
-    let project_number = await metadata.project('numeric-project-id');
-    let project_id = await metadata.project('project-id');
+    let project_number = await metadata.project('748322273584');
+    let project_id = await metadata.project('tekriture');
 
     aud = '/projects/' + project_number + '/apps/' + project_id;
   }
@@ -36,10 +36,8 @@ async function validateAssertion(assertion) {
       return {};
     }
   
-    // Check that the assertion's audience matches ours
     const aud = await audience();
   
-    // Fetch the current certificates and verify the signature on the assertion
     const response = await oAuth2Client.getIapPublicKeys();
     const ticket = await oAuth2Client.verifySignedJwtWithCertsAsync(
       assertion,
@@ -64,7 +62,7 @@ const s3 = new AWS.S3({
 
 const BUCKET = 'tekriture';
 var poolConnection;
-const port = 8001;
+const port = 3000;
 
 
 //? Connection Configuration TO Azure DB
@@ -100,34 +98,21 @@ app.listen(port);
 
 //? Function to send image to db 
 
-const uploadFile = (file, keyName) => {
+const uploadFile = (keyName) => {
 
-    return new Promise((resolve, reject) => {
-        try {
-            var fs = require('fs');
-            const BUCKET = 'tekriture';
-            file = fs.readFileSync("https://www.creativefabrica.com/wp-content/uploads/2023/01/01/Cute-Black-Girl-With-Blue-Eyes-And-Curly-Hair-Wearing-55649614-1.png");
-            const uploadParams = {
-                Bucket: BUCKET,
-                Key: keyName,
-                Body: file
-            };
+    fs.readFile(keyName, (err, data) => {
+        if (err) throw err;
+        const params = {
+            Bucket: BUCKET ,
+            Key: keyName, 
+            Body: JSON.stringify(data, null, 2)
+        };
+        s3.upload(params, function(s3Err, data) {
+            if (s3Err) throw s3Err
+            console.log(`File uploaded successfully at ${data.Location}`)
+        });
+     });
 
-            s3.upload(uploadParams, function (err, data) {
-                if (err) {
-                    console.log(err.message)
-                    return reject(err);
-                }
-                if (data) {
-                    console.log(data)
-                    return resolve(data);
-                }
-            });
-        } catch (err) {
-            console.log(err.message)
-            return reject(err);
-        }
-    })
 }
 
 //? Get Imge from AWS
@@ -228,19 +213,36 @@ app.post('/articles', async (req, res) => {
     try {
 
         console.log("Posting article")
-        let id = 1
-        let idQuery = await poolConnection.request().query(`SELECT MAX(ArticleId) FROM Articles`)
-        idQuery.recordset.forEach(row => {
-            if (row.ArticleId) { id = id + row.ArticleId }
-
-        });
+        
+        newFile = await fs.writeFile(req.body.ArticleTitle+".txt" , req.body.ArticleTitle+' file created with the following information. 1) Title: '+req.body.ArticleTitle+', 2)Body: ' +req.body.ArticleBody+ ", 3)Creation Date: "+req.body.ArticleDate+ "and other information I will upload later", function (err) {
+            if (err) throw err;
+            console.log('File is created successfully.')
+          });
+        newFile = await fs.writeFile(req.body.ArticleTitle+".txt" , req.body.ArticleTitle+' file created with the following information. 1) Title: '+req.body.ArticleTitle+', 2)Body: ' +req.body.ArticleBody+ ", 3)Creation Date: "+req.body.ArticleDate+ "and other information I will upload later", function (err) {
+            if (err) throw err;
+            console.log('File is created successfully.')
+          });
         // upload file to AWS
-        uploadFile(req.body.ArticleImage, String(req.body.ArticleTitle))
+        uploadFile(req.body.ArticleTitle+".txt")
 
         console.log(
             "Running Query"
         )
-        let data = await poolConnection.request().query(`INSERT INTO  Articles (ArticleId, ArticleTitle, ArticleBody, ArticleImage, ArticleDate, ArticleAudio, ArticleTags, CategoryId) VALUES ( 7 , '" +req.body.ArticleTitle+"', '" +req.body.ArticleBody+"', '" +(req.body.ArticleImage+"', '" +req.body.ArticleDate+"', '" +req.body.ArticleAudio+"', '" +req.body.ArticleTags+"', 1)`);
+        
+        let data = await poolConnection.request()
+        .input('id', sql.Int, req.body.ArticleId)
+        .input('title', sql.VarChar(250), req.body.ArticleTitle)
+        .input('body', sql.VarChar(250), req.body.ArticleBody)
+        .input('image', sql.VarChar(250), req.body.ArticleImage)
+        .input('date', sql.VarChar(250), req.body.ArticleDate)
+        .input('audio', sql.VarChar(250), req.body.ArticleAudio)
+        .input('tags', sql.VarChar(250), String(req.body.ArticleTags))
+        .input('category', sql.Int, 1)
+        .query(`INSERT INTO Articles 
+        VALUES
+        (
+            @id, @title, @body, @image, @date, @audio, @tags, @category
+        )` );
         res.send(data)
         console.log(data + " added successfully")
     } catch (e) {
@@ -444,7 +446,7 @@ app.get('/users', async (req, res) => {
 })
 
 // This will serve as auth function for the moment
-app.get('/users/:id', async (req, res) => {
+app.get('/user', async (req, res) => {
     const assertion = req.header('X-Goog-IAP-JWT-Assertion');
     let email = 'None';
     try {
@@ -454,7 +456,6 @@ app.get('/users/:id', async (req, res) => {
       console.log(error);
     }
     res.send(email)
-    res.status(200).send(`Hello ${email}`).end();
   });
 
 //? Post users
