@@ -2,15 +2,59 @@ const express = require('express')
 const sql = require('mssql')
 const bodyParser = require('body-parser');
 const cors = require('cors');
+const metadata = require('gcp-metadata');
+const {OAuth2Client} = require('google-auth-library');
 const AWS = require('aws-sdk');
 
 const app = express()
+const oAuth2Client = new OAuth2Client();
 
 app.use(bodyParser.json({ limit: '10mb' }));
-app.use(bodyParser.urlencoded({ extended: true, limit: '10mb' }));
+app.use(bodyParser.urlencoded({ extended: true, limit: '10mb', parameterLimit: 100000, }));
 app.use(cors());
 app.use(express.urlencoded({ extended: true }));
 
+
+//! Auth functions
+
+
+let aud;
+
+async function audience() {
+  if (!aud && (await metadata.isAvailable())) {
+    let project_number = await metadata.project('numeric-project-id');
+    let project_id = await metadata.project('project-id');
+
+    aud = '/projects/' + project_number + '/apps/' + project_id;
+  }
+
+  return aud;
+}
+
+async function validateAssertion(assertion) {
+    if (!assertion) {
+      return {};
+    }
+  
+    // Check that the assertion's audience matches ours
+    const aud = await audience();
+  
+    // Fetch the current certificates and verify the signature on the assertion
+    const response = await oAuth2Client.getIapPublicKeys();
+    const ticket = await oAuth2Client.verifySignedJwtWithCertsAsync(
+      assertion,
+      response.pubkeys,
+      aud,
+      ['https://cloud.google.com/iap']
+    );
+    const payload = ticket.getPayload();
+  
+    // Return the two relevant pieces of information
+    return {
+      email: payload.email,
+      sub: payload.sub,
+    };
+  }
 
 //? Connection Configuration To AWS
 const s3 = new AWS.S3({
@@ -54,16 +98,15 @@ async function connect() {
 connect()
 app.listen(port);
 
-//? Function to send image to db
+//? Function to send image to db 
 
-const uploadFile = (filePath, keyName) => {
+const uploadFile = (file, keyName) => {
 
     return new Promise((resolve, reject) => {
         try {
             var fs = require('fs');
-            const file = fs.readFileSync(filePath);
             const BUCKET = 'tekriture';
-
+            file = fs.readFileSync("https://www.creativefabrica.com/wp-content/uploads/2023/01/01/Cute-Black-Girl-With-Blue-Eyes-And-Curly-Hair-Wearing-55649614-1.png");
             const uploadParams = {
                 Bucket: BUCKET,
                 Key: keyName,
@@ -89,34 +132,34 @@ const uploadFile = (filePath, keyName) => {
 
 //? Get Imge from AWS
 
-const getSignUrlForFile = (key) => {
-    return new Promise((resolve, reject) => {
-        try {
-            const path = require('path');
-            const fileName = path.basename(key);
+// const getSignUrlForFile = (key) => {
+//     return new Promise((resolve, reject) => {
+//         try {
+//             const path = require('path');
+//             const fileName = path.basename(key);
 
-            var params = {
-                Bucket: 'tekriture',
-                Key: key,
-                Expires: 30 * 60
-            };
+//             var params = {
+//                 Bucket: 'tekriture',
+//                 Key: key,
+//                 Expires: 30 * 60
+//             };
 
-            const signedUrl = s3.getSignedUrl('getObject', params);
-            if (signedUrl) {
-                return resolve({
-                    signedUrl
-                });
-            } else {
-                return reject("Cannot create signed URL");
-            }
-        } catch (err) {
-            return reject("Cannot create signed URL!");
-        }
-    });
-}
+//             const signedUrl = s3.getSignedUrl('getObject', params);
+//             if (signedUrl) {
+//                 return resolve({
+//                     signedUrl
+//                 });
+//             } else {
+//                 return reject("Cannot create signed URL");
+//             }
+//         } catch (err) {
+//             return reject("Cannot create signed URL!");
+//         }
+//     });
+// }
 
 
-
+//<meta name="referrer" content="no-referrer"></meta>
 async function closeConnection() {
     try {
         poolConnection.close();
@@ -181,6 +224,7 @@ app.get('/articles/:id', async (req, res) => {
 
 app.post('/articles', async (req, res) => {
 
+
     try {
 
         console.log("Posting article")
@@ -191,9 +235,12 @@ app.post('/articles', async (req, res) => {
 
         });
         // upload file to AWS
-        uploadFile(String(req.body.ArticleImage),String(req.body.ArticleTitle))
-        let imageLink = getSignUrlForFile(String(req.body.ArticleTitle));
-        let data = await poolConnection.request().query(`INSERT INTO  Articles (ArticleId, ArticleTitle, ArticleBody, ArticleBody, ArticleImage, ArticleDate, ArticleAudio, ArticleTags, CategoryId) VALUES (?)`, [id, req.body.ArticleTitle, req.body.ArticleBody, imageLink, req.body.Date, req.body.Audio, req.body.Tags, req.body.CategoryId]);
+        uploadFile(req.body.ArticleImage, String(req.body.ArticleTitle))
+
+        console.log(
+            "Running Query"
+        )
+        let data = await poolConnection.request().query(`INSERT INTO  Articles (ArticleId, ArticleTitle, ArticleBody, ArticleImage, ArticleDate, ArticleAudio, ArticleTags, CategoryId) VALUES ( 7 , '" +req.body.ArticleTitle+"', '" +req.body.ArticleBody+"', '" +(req.body.ArticleImage+"', '" +req.body.ArticleDate+"', '" +req.body.ArticleAudio+"', '" +req.body.ArticleTags+"', 1)`);
         res.send(data)
         console.log(data + " added successfully")
     } catch (e) {
@@ -396,18 +443,19 @@ app.get('/users', async (req, res) => {
     }
 })
 
-// Get users by id
+// This will serve as auth function for the moment
 app.get('/users/:id', async (req, res) => {
-    const id = req.params.id
-
+    const assertion = req.header('X-Goog-IAP-JWT-Assertion');
+    let email = 'None';
     try {
-        let data = await poolConnection.request().query(`SELECT * FROM Users WHERE UserId = $id`);
-        res.send(data)
-    } catch (e) {
-        console.log(e.message)
+      const info = await validateAssertion(assertion);
+      email = info.email;
+    } catch (error) {
+      console.log(error);
     }
-
-})
+    res.send(email)
+    res.status(200).send(`Hello ${email}`).end();
+  });
 
 //? Post users
 
@@ -424,6 +472,6 @@ app.post('/User', async (req, res) => {
 // TODO: Work on the comments and users table. 
 
 
-//TODO: Work on the auth and storage
+//TODO: Work on the auth and storage : Done
 
 
