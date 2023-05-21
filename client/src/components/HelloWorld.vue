@@ -3,50 +3,74 @@
 
     <v-app-bar flat>
       <v-container class="fill-height d-flex align-center">
-        <v-avatar class="me-10 ms-4" color="grey-darken-1" size="32">JK</v-avatar>
-        <v-spacer></v-spacer>
-        <v-row>
-          <v-col class="ms-auto" v-for="link in links" :key="link">
-            <v-btn variant="plain">
-              {{ link }}
-            </v-btn>
-          </v-col>
+        Hello {{ email }}, 
+        The aim of this project being not to test ui, I plead you to enter real values in the form before hitting the submit button. Also there is no loading animation so just be patient and data will be uploaded.
 
-        </v-row>
         <v-spacer></v-spacer>
 
-        <v-row align="space-around" no-gutters="true" dense="true">
-          <v-spacer></v-spacer>
-          <v-col class="ma-n4 pa-0" v-for="i in 3" :key="i">
-            <v-btn icon="fa-solid fa-check" size="x-small" variant="plain" color="black">
 
-            </v-btn>
-            <v-btn icon="fa-brands fa-square-whatsapp" variant="plain" color="red"></v-btn>
-          </v-col>
-        </v-row>
       </v-container>
     </v-app-bar>
     <v-main class="bg-grey-lighten-3">
       <v-container>
         <v-row>
-
-
-          <v-col>
-
-
+          <v-col cols="8">
             <v-row>
-              <v-col v-for="n in 9" :key="n" class="d-flex child-flex" cols="4">
-                <v-img :src="`https://picsum.photos/500/300?image=${n * 5 + 10}`"
-                  :lazy-src="`https://picsum.photos/10/6?image=${n * 5 + 10}`" aspect-ratio="1" cover
-                  class="bg-grey-lighten-2">
-                  <template v-slot:placeholder>
-                    <v-row class="fill-height ma-0" align="center" justify="center">
-                      <v-progress-circular indeterminate color="grey-lighten-5"></v-progress-circular>
-                    </v-row>
-                  </template>
-                </v-img>
+              <v-col v-for="n in articles" :key="n" class="d-flex child-flex" cols="4">
+                <v-card class="mx-auto" max-width="344">
+                  <v-img src="https://source.unsplash.com/1600x900/?portrait" height="200px" cover></v-img>
+                  <v-card-title>
+                    {{ n.ArticleTitle }} 
+                  </v-card-title>
+                  <v-card-subtitle>
+                    {{ n.ArticleDate }}
+                  </v-card-subtitle>
+
+                  <v-card-actions>
+                    <v-btn color="orange-lighten-2" variant="text" @click="show = !show">
+                      Read Article Body
+                    </v-btn>
+
+                    <v-spacer></v-spacer>
+
+                  </v-card-actions>
+                  <v-expand-transition>
+                    <div v-show="show">
+                      <v-divider></v-divider>
+
+                      <v-card-text>
+                        
+                        {{ n.ArticleBody }} 
+
+                        <p>The different tags associated to this article are : Default {{n.ArticleTags}}</p>
+                      </v-card-text>
+                    </div>
+                  </v-expand-transition>
+                </v-card>
               </v-col>
+
             </v-row>
+          </v-col>
+          <v-col cols="4">
+            <form>
+
+              <h1>Add an article here</h1>
+              <v-text-field v-model="title" label="Title"></v-text-field>
+
+              <v-textarea v-model="body" label="Text Body"></v-textarea>
+
+              <v-select v-model="tags" :items="items" chips label="Tags" multiple></v-select>
+
+              <v-btn class="me-4 mb-8" @click="postArticle">
+                submit
+              </v-btn>
+
+              <p>Link to the AWS Bucket: <a
+                  href="https://s3.console.aws.amazon.com/s3/buckets/tekriture?region=us-east-1&tab=objects">Visit The
+                  different files files you uploaded here</a></p>
+              <p>Link of the github repo </p>
+
+            </form>
           </v-col>
         </v-row>
       </v-container>
@@ -57,7 +81,16 @@
 <script>
 export default {
   data: () => ({
-    categories: {},
+    show: false,
+    url: "",
+    title: "",
+    body: "",
+    tags: "",
+    mail: "",
+    image: null,
+    items: ['slam', 'melancoly', 'charm', 'beauty'],
+    value: ['slam', 'melancoly', 'charm', 'beauty'],
+    articles: {},
     links: [
       'Acceuil',
       'Blog',
@@ -72,14 +105,53 @@ export default {
     ],
   }),
   created() {
-    this.getList(); // NEW - call getEventData() when the instance is created
+    this.getArticleList();
+    this.getUser();
   },
   methods: {
-    async getList() {
-      await this.axios.get("http://localhost:8001/category").then((response) => {
-        this.categories =response.data
-        console.log(this.categories)
+    async getArticleList() {
+      await this.axios.get("http://localhost:3000/articles").then((response) => {
+        this.articles = response.data
       })
+    },
+    async getUrl() {
+      this.url = "https://source.unsplash.com/1600x900/?portrait"
+      console.log(this.url)
+      return this.url
+    },
+    async getUser() {
+      await this.axios.get("http://localhost:3000/user").then((response) => {
+        this.mail = response.data
+      })
+    },
+    async postArticle() {
+      var id = this.articles.length + 2
+      console.log("Posting article")
+      await this.axios.post("http://localhost:3000/articles", {
+        ArticleId: id,
+        ArticleTitle: this.title,
+        ArticleBody: this.body,
+        ArticleImage: "image",
+        ArticleDate: String(Date()),
+        AticleAudio: "",
+        ArticleTags: this.tags,
+        CategoryId: 1
+      }).then((response) => {
+        console.log("is this happenning?")
+        this.getArticleList()
+        console.log(response)
+      })
+    },
+    upload() {
+      // the file object is not empty
+      console.log(this.image);
+
+      // post image to server
+      const formData = new FormData();
+      formData.append('file', this.image);
+
+      console.log(this.image)
+
     }
   }
 }
